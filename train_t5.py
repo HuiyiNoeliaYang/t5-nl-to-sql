@@ -55,6 +55,24 @@ def get_args():
     # Data hyperparameters
     parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--test_batch_size', type=int, default=16)
+    
+    # Generation hyperparameters
+    parser.add_argument('--num_beams', type=int, default=3,
+                        help="Number of beams for beam search (1 = greedy decoding, 0 = use sampling)")
+    parser.add_argument('--repetition_penalty', type=float, default=1.2,
+                        help="Penalty for repeating tokens (1.0 = no penalty)")
+    parser.add_argument('--no_repeat_ngram_size', type=int, default=3,
+                        help="Prevent repeating n-grams of this size")
+    parser.add_argument('--length_penalty', type=float, default=1.0,
+                        help="Penalty for longer sequences (1.0 = no penalty)")
+    parser.add_argument('--use_sampling', action='store_true',
+                        help="Use sampling instead of beam search (overrides num_beams)")
+    parser.add_argument('--temperature', type=float, default=0.7,
+                        help="Temperature for sampling (lower = more deterministic, higher = more diverse)")
+    parser.add_argument('--top_k', type=int, default=50,
+                        help="Top-k sampling: only sample from top k tokens")
+    parser.add_argument('--top_p', type=float, default=0.95,
+                        help="Nucleus sampling: only sample from tokens with cumulative probability <= top_p")
 
     args = parser.parse_args()
     return args
@@ -197,6 +215,53 @@ def train_epoch(args, model, train_loader, optimizer, scheduler):
             total_tokens += num_tokens
 
     return total_loss / total_tokens
+
+def get_generation_kwargs(args, tokenizer):
+    '''
+    Helper function to get generation parameters.
+    Centralizes generation config to avoid duplication.
+    Supports both beam search and sampling strategies.
+    
+    Note: These parameters are NOT implemented in this code - they're passed to
+    HuggingFace Transformers' model.generate() method, which implements them internally.
+    See GENERATION_PARAMETERS_EXPLAINED.md for details on how they work.
+    
+    Parameters:
+    - repetition_penalty: Applied at each step to reduce probability of tokens 
+      already in the generated sequence (1.0 = no penalty, >1.0 = penalty)
+    - no_repeat_ngram_size: Completely blocks n-grams from repeating 
+      (0 = no blocking, 3 = block repeating 3-grams)
+    - length_penalty: Only for beam search - normalizes beam scores by sequence length
+      (1.0 = divide by length, <1.0 = favor longer, >1.0 = favor shorter)
+    '''
+    base_kwargs = {
+        'max_length': 512,
+        'repetition_penalty': args.repetition_penalty,  # Reduces probability of repeated tokens
+        'no_repeat_ngram_size': args.no_repeat_ngram_size,  # Blocks duplicate n-grams
+        'pad_token_id': tokenizer.pad_token_id,
+        'eos_token_id': tokenizer.eos_token_id,
+    }
+    
+    if args.use_sampling or args.num_beams == 0:
+        # Use sampling strategy
+        base_kwargs.update({
+            'do_sample': True,
+            'temperature': args.temperature,
+            'top_k': args.top_k,
+            'top_p': args.top_p,
+        })
+        print(f"Using sampling: temperature={args.temperature}, top_k={args.top_k}, top_p={args.top_p}")
+    else:
+        # Use beam search strategy
+        base_kwargs.update({
+            'num_beams': args.num_beams,
+            'early_stopping': True,
+            'length_penalty': args.length_penalty,
+            'do_sample': False,
+        })
+        print(f"Using beam search: num_beams={args.num_beams}, length_penalty={args.length_penalty}")
+    
+    return base_kwargs
         
 def eval_epoch(args, model, dev_loader, gt_sql_pth, model_sql_path, gt_record_path, model_record_path):
     '''
@@ -236,14 +301,11 @@ def eval_epoch(args, model, dev_loader, gt_sql_pth, model_sql_path, gt_record_pa
             total_tokens += num_tokens
             
             # Generate SQL queries
+            generation_kwargs = get_generation_kwargs(args, tokenizer)
             generated = model.generate(
                 input_ids=encoder_input,
                 attention_mask=encoder_mask,
-                max_length=512,
-                num_beams=1,  # Greedy decoding
-                early_stopping=True,
-                pad_token_id=tokenizer.pad_token_id,
-                eos_token_id=tokenizer.eos_token_id
+                **generation_kwargs
             )
             
             # Decode generated queries
@@ -278,14 +340,11 @@ def test_inference(args, model, test_loader, model_sql_path, model_record_path):
             encoder_mask = encoder_mask.to(DEVICE)
             
             # Generate SQL queries
+            generation_kwargs = get_generation_kwargs(args, tokenizer)
             generated = model.generate(
                 input_ids=encoder_input,
                 attention_mask=encoder_mask,
-                max_length=512,
-                num_beams=1,  # Greedy decoding
-                early_stopping=True,
-                pad_token_id=tokenizer.pad_token_id,
-                eos_token_id=tokenizer.eos_token_id
+                **generation_kwargs
             )
             
             # Decode generated queries
