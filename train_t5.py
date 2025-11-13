@@ -137,29 +137,33 @@ def plot_loss_curves(epochs, train_losses, dev_losses, save_dir):
     
     # Display plot in Colab/Jupyter
     try:
-        import sys
-        # Check if running in Colab
-        if 'google.colab' in str(sys.modules):
-            # In Colab, display using IPython
-            try:
-                from IPython.display import Image, display
-                display(Image(plot_path))
-                print(f"\n📊 Plot saved and displayed above. File: {plot_path}")
-            except:
-                print(f"\n📊 Plot saved to: {plot_path}")
-                print("   View it in Colab's file browser")
-        elif 'ipykernel' in sys.modules:
-            # In Jupyter
-            plt.show()
-        else:
-            # For terminal: try non-blocking display
-            plt.show(block=False)
-            plt.pause(0.1)
+        # Try to detect Colab
+        try:
+            import google.colab
+            # In Colab: display using IPython
+            from IPython.display import Image, display
+            # Close the figure first to avoid the "Figure(1000x600)" output
+            plt.close()
+            # Then display the saved image
+            display(Image(plot_path))
+            print(f"\n📊 Plot updated! File: {plot_path}")
+        except ImportError:
+            # Not in Colab
+            import sys
+            if 'ipykernel' in sys.modules:
+                # In Jupyter
+                plt.show()
+                plt.close()
+            else:
+                # For terminal: try non-blocking display
+                plt.show(block=False)
+                plt.pause(0.1)
+                plt.close()
     except Exception as e:
-        # If display fails, just save the file
+        # If display fails, just save the file and print path
+        plt.close()
         print(f"\n📊 Plot saved to: {plot_path}")
-    
-    plt.close()
+        print(f"   View it in Colab's file browser at: {plot_path}")
 
 def train_epoch(args, model, train_loader, optimizer, scheduler):
     model.train()
