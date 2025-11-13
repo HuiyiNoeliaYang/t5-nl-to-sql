@@ -135,12 +135,29 @@ def plot_loss_curves(epochs, train_losses, dev_losses, save_dir):
     plot_path = os.path.join(save_dir, 'training_curves.png')
     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     
-    # Display plot (works in Colab/Jupyter, won't block in terminal)
+    # Display plot in Colab/Jupyter
     try:
-        plt.show(block=False)
-        plt.pause(0.1)  # Brief pause to allow display to update
-    except:
-        pass  # If display not available, just save the file
+        import sys
+        # Check if running in Colab
+        if 'google.colab' in str(sys.modules):
+            # In Colab, display using IPython
+            try:
+                from IPython.display import Image, display
+                display(Image(plot_path))
+                print(f"\n📊 Plot saved and displayed above. File: {plot_path}")
+            except:
+                print(f"\n📊 Plot saved to: {plot_path}")
+                print("   View it in Colab's file browser")
+        elif 'ipykernel' in sys.modules:
+            # In Jupyter
+            plt.show()
+        else:
+            # For terminal: try non-blocking display
+            plt.show(block=False)
+            plt.pause(0.1)
+    except Exception as e:
+        # If display fails, just save the file
+        print(f"\n📊 Plot saved to: {plot_path}")
     
     plt.close()
 
@@ -309,7 +326,11 @@ def main():
     # Test set
     model_sql_path = os.path.join(f'results/t5_{model_type}_{args.experiment_name}_test.sql')
     model_record_path = os.path.join(f'records/t5_{model_type}_{args.experiment_name}_test.pkl')
+    print(f"\nGenerating test set predictions...")
     test_inference(args, model, test_loader, model_sql_path, model_record_path)
+    print(f"\n✓ Training complete! Test predictions saved to:")
+    print(f"  SQL: {model_sql_path}")
+    print(f"  Records: {model_record_path}")
 
 if __name__ == "__main__":
     main()
