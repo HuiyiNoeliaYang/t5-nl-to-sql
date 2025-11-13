@@ -30,8 +30,68 @@ def initialize_model(args):
         config = T5Config.from_pretrained(model_name)
         model = T5ForConditionalGeneration(config)
     
+    # Freeze parameters based on arguments
+    freeze_model_parameters(model, args)
+    
     model.to(DEVICE)
     return model
+
+def freeze_model_parameters(model, args):
+    '''
+    Freeze model parameters based on the provided arguments.
+    Common strategies:
+    - Freeze encoder: Keep encoder frozen, only train decoder
+    - Freeze decoder: Keep decoder frozen, only train encoder
+    - Freeze embeddings: Keep embedding layers frozen
+    - Freeze early layers: Freeze first N layers, train later layers
+    '''
+    total_params = sum(p.numel() for p in model.parameters())
+    
+    # Freeze embeddings if requested
+    if args.freeze_embeddings:
+        if hasattr(model, 'shared'):
+            model.shared.weight.requires_grad = False
+        if hasattr(model, 'encoder') and hasattr(model.encoder, 'embed_tokens'):
+            model.encoder.embed_tokens.weight.requires_grad = False
+        if hasattr(model, 'decoder') and hasattr(model.decoder, 'embed_tokens'):
+            model.decoder.embed_tokens.weight.requires_grad = False
+    
+    # Freeze entire encoder if requested
+    if args.freeze_encoder:
+        for param in model.encoder.parameters():
+            param.requires_grad = False
+    
+    # Freeze entire decoder if requested
+    if args.freeze_decoder:
+        for param in model.decoder.parameters():
+            param.requires_grad = False
+    
+    # Freeze first N encoder layers
+    if args.freeze_n_encoder_layers > 0 and hasattr(model.encoder, 'block'):
+        num_layers = len(model.encoder.block)
+        layers_to_freeze = min(args.freeze_n_encoder_layers, num_layers)
+        for i in range(layers_to_freeze):
+            for param in model.encoder.block[i].parameters():
+                param.requires_grad = False
+        print(f"Frozen first {layers_to_freeze} encoder layers (out of {num_layers})")
+    
+    # Freeze first N decoder layers
+    if args.freeze_n_decoder_layers > 0 and hasattr(model.decoder, 'block'):
+        num_layers = len(model.decoder.block)
+        layers_to_freeze = min(args.freeze_n_decoder_layers, num_layers)
+        for i in range(layers_to_freeze):
+            for param in model.decoder.block[i].parameters():
+                param.requires_grad = False
+        print(f"Frozen first {layers_to_freeze} decoder layers (out of {num_layers})")
+    
+    # Print statistics
+    trainable_params_after = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    frozen_params = total_params - trainable_params_after
+    
+    print(f"\nParameter Freezing Statistics:")
+    print(f"  Total parameters: {total_params:,}")
+    print(f"  Trainable parameters: {trainable_params_after:,} ({100*trainable_params_after/total_params:.2f}%)")
+    print(f"  Frozen parameters: {frozen_params:,} ({100*frozen_params/total_params:.2f}%)")
 
 def mkdir(dirpath):
     if not os.path.exists(dirpath):
@@ -64,6 +124,9 @@ def load_model_from_checkpoint(args, best):
     
     if os.path.exists(path):
         model.load_state_dict(torch.load(path, map_location=DEVICE))
+    
+    # Apply freezing again (in case we're loading for evaluation)
+    freeze_model_parameters(model, args)
     
     model.to(DEVICE)
     return model

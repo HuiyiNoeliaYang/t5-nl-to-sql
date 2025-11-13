@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import wandb
+import matplotlib.pyplot as plt
 
 from t5_utils import initialize_model, initialize_optimizer_and_scheduler, save_model, load_model_from_checkpoint, setup_wandb
 from transformers import GenerationConfig, T5TokenizerFast
@@ -61,6 +62,11 @@ def get_args():
 def train(args, model, train_loader, dev_loader, optimizer, scheduler):
     best_f1 = -1
     epochs_since_improvement = 0
+    
+    # Store losses for plotting
+    train_losses = []
+    dev_losses = []
+    epoch_numbers = []
 
     model_type = 'ft' if args.finetune else 'scr'
     checkpoint_dir = os.path.join('checkpoints', f'{model_type}_experiments', args.experiment_name)
@@ -71,15 +77,22 @@ def train(args, model, train_loader, dev_loader, optimizer, scheduler):
     gt_record_path = os.path.join(f'records/ground_truth_dev.pkl')
     model_sql_path = os.path.join(f'results/t5_{model_type}_{experiment_name}_dev.sql')
     model_record_path = os.path.join(f'records/t5_{model_type}_{experiment_name}_dev.pkl')
+    
     for epoch in range(args.max_n_epochs):
         tr_loss = train_epoch(args, model, train_loader, optimizer, scheduler)
-        print(f"Epoch {epoch}: Average train loss was {tr_loss}")
+        train_losses.append(tr_loss)
+        epoch_numbers.append(epoch)
+        print(f"Epoch {epoch}: Average train loss was {tr_loss:.4f}")
 
         eval_loss, record_f1, record_em, sql_em, error_rate = eval_epoch(args, model, dev_loader,
                                                                          gt_sql_path, model_sql_path,
                                                                          gt_record_path, model_record_path)
-        print(f"Epoch {epoch}: Dev loss: {eval_loss}, Record F1: {record_f1}, Record EM: {record_em}, SQL EM: {sql_em}")
+        dev_losses.append(eval_loss)
+        print(f"Epoch {epoch}: Dev loss: {eval_loss:.4f}, Record F1: {record_f1:.4f}, Record EM: {record_em:.4f}, SQL EM: {sql_em:.4f}")
         print(f"Epoch {epoch}: {error_rate*100:.2f}% of the generated outputs led to SQL errors")
+        
+        # Plot loss after each epoch
+        plot_loss_curves(epoch_numbers, train_losses, dev_losses, checkpoint_dir)
 
         if args.use_wandb:
             result_dict = {
@@ -104,6 +117,33 @@ def train(args, model, train_loader, dev_loader, optimizer, scheduler):
 
         if epochs_since_improvement >= args.patience_epochs:
             break
+
+def plot_loss_curves(epochs, train_losses, dev_losses, save_dir):
+    '''
+    Plot training and validation loss curves after each epoch.
+    '''
+    plt.figure(figsize=(10, 6))
+    plt.plot(epochs, train_losses, 'b-', label='Training Loss', linewidth=2, marker='o')
+    plt.plot(epochs, dev_losses, 'r-', label='Validation Loss', linewidth=2, marker='s')
+    plt.xlabel('Epoch', fontsize=12)
+    plt.ylabel('Loss', fontsize=12)
+    plt.title('Training and Validation Loss Curves', fontsize=14)
+    plt.legend(fontsize=11)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    
+    # Save plot (overwrites after each epoch)
+    plot_path = os.path.join(save_dir, 'training_curves.png')
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    
+    # Display plot (works in Colab/Jupyter, won't block in terminal)
+    try:
+        plt.show(block=False)
+        plt.pause(0.1)  # Brief pause to allow display to update
+    except:
+        pass  # If display not available, just save the file
+    
+    plt.close()
 
 def train_epoch(args, model, train_loader, optimizer, scheduler):
     model.train()
