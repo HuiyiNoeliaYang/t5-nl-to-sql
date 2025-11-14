@@ -73,6 +73,8 @@ def get_args():
                         help="Top-k sampling: only sample from top k tokens")
     parser.add_argument('--top_p', type=float, default=0.95,
                         help="Nucleus sampling: only sample from tokens with cumulative probability <= top_p")
+    parser.add_argument('--max_length', type=int, default=768,
+                        help="Maximum length of generated sequences (default: 768)")
 
     args = parser.parse_args()
     return args
@@ -235,7 +237,7 @@ def get_generation_kwargs(args, tokenizer):
       (1.0 = divide by length, <1.0 = favor longer, >1.0 = favor shorter)
     '''
     base_kwargs = {
-        'max_length': 512,
+        'max_length': args.max_length,
         'repetition_penalty': args.repetition_penalty,  # Reduces probability of repeated tokens
         'no_repeat_ngram_size': args.no_repeat_ngram_size,  # Blocks duplicate n-grams
         'pad_token_id': tokenizer.pad_token_id,

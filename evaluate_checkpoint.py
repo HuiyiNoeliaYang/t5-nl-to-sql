@@ -39,6 +39,7 @@ def evaluate_checkpoint(experiment_name, checkpoint_type='best', finetune=True,
     args.experiment_name = experiment_name
     
     # Set generation parameters (use defaults if not provided)
+    args.max_length = generation_kwargs.get('max_length', 768)
     args.num_beams = generation_kwargs.get('num_beams', 4)
     args.repetition_penalty = generation_kwargs.get('repetition_penalty', 1.0)
     args.no_repeat_ngram_size = generation_kwargs.get('no_repeat_ngram_size', 0)
@@ -67,6 +68,7 @@ def evaluate_checkpoint(experiment_name, checkpoint_type='best', finetune=True,
     # Evaluate
     print(f"\nEvaluating on dev set...")
     print(f"Generation settings:")
+    print(f"  - max_length: {args.max_length}")
     print(f"  - num_beams: {args.num_beams}")
     print(f"  - repetition_penalty: {args.repetition_penalty}")
     print(f"  - no_repeat_ngram_size: {args.no_repeat_ngram_size}")
@@ -135,11 +137,14 @@ def main():
                         help='Top-k for sampling')
     parser.add_argument('--top_p', type=float, default=0.95,
                         help='Top-p (nucleus) for sampling')
+    parser.add_argument('--max_length', type=int, default=768,
+                        help='Maximum length of generated sequences (default: 768)')
     
     args = parser.parse_args()
     
     # Extract generation kwargs
     generation_kwargs = {
+        'max_length': args.max_length,
         'num_beams': args.num_beams,
         'repetition_penalty': args.repetition_penalty,
         'no_repeat_ngram_size': args.no_repeat_ngram_size,
