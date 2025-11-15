@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Query Comparison</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+            text-align: center;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            font-size: 1em;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+        
+        .stat-card .value {
+            font-size: 2em;
+            font-weight: bold;
+        }
+        
+        .stat-card .subtext {
+            font-size: 0.9em;
+            margin-top: 5px;
+            opacity: 0.8;
+        }
+        
+        .query-comparison {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        
+        .query-header {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 25px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        
+        .query-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px;
+            background: #e0e0e0;
+        }
+        
+        .query-side {
+            background: white;
+            padding: 25px;
+        }
+        
+        .query-side h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .query-side.model h3 {
+            color: #e74c3c;
+        }
+        
+        .query-side.model h3::before {
+            content: "🤖 ";
+        }
+        
+        .query-side.correct h3 {
+            color: #27ae60;
+        }
+        
+        .query-side.correct h3::before {
+            content: "✓ ";
+        }
+        
+        .sql-code {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .different {
+            background-color: #ffcdd2;
+            color: #d32f2f;
+            font-weight: bold;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        
+        .legend {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .legend-color {
+            width: 30px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        
+        .match-indicator {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .match {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .differ {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        @media (max-width: 1200px) {
+            .query-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 SQL Query Comparison Analysis</h1>
+            <div class="stats">
+                <div class="stat-card">
+                    <h3>Total Queries</h3>
+                    <div class="value">25</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Model Average Length</h3>
+                    <div class="value">516.8</div>
+                    <div class="subtext">characters</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Correct Average Length</h3>
+                    <div class="value">558.4</div>
+                    <div class="subtext">characters</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Difference</h3>
+                    <div class="value">-41.6</div>
+                    <div class="subtext">-7.4% shorter</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ffcdd2; border-color: #d32f2f;"></div>
+                <span><strong>Red Highlight:</strong> Differences between model and correct query</span>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #1
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (441 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;DENVER&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;PHILADELPHIA&#x27;</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (661 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2<span class="different"> , days days_1 , date_day date_day_1</span> WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;DENVER&#x27; AND <span class="different">( </span>flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;PHILADELPHIA&#x27;<span class="different"> AND flight_1.flight_days = days_1.days_code AND days_1.day_name = date_day_1.day_name AND date_day_1.year = 1991 AND date_day_1.month_number = 1 AND date_day_1.day_number = 20 )</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #2
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (439 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;WASHINGTON&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;BOSTON&#x27;</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (497 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2 WHERE<span class="different"> flight_1.departure_time BETWEEN 1200 AND 1800 AND (</span> flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;WASHINGTON&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;BOSTON&#x27;<span class="different"> )</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #3
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (779 chars)</h3>
+                    <div class="sql-code">SELECT <span class="different">DISTINCT fligh</span>t_1.<span class="different">fligh</span>t_<span class="different">i</span>d FROM <span class="different">fligh</span>t<span class="different"> flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2, days days_1, d</span>ate<span class="different">_day</span> <span class="different">d</span>ate<span class="different">_day</span>_1 WHERE <span class="different">fligh</span>t<span class="different">_1.from_</span>a<span class="different">irpor</span>t<span class="different"> = airport_servic</span>e_1.a<span class="different">irpor</span>t<span class="different">_cod</span>e<span class="different"> AND airport_service_1.city</span>_code = <span class="different">city_1.city_code </span>A<span class="different">N</span>D<span class="different"> city_1.city_name = &#x27;BALTIMORE</span>&#x27; <span class="different">AND ( flight_1.from_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;BALTIMORE&#x27; AND ( flight_1.flight_days = days_1.days_code AND days_1.day_name = date_day_1.day_name AND date_day_1.year = 1991 AND date_day_1.month_number = 4 AND date_day_1.day_number = 7 AND date_day_1.day_number = 7 AND date_day_1.day_number = 7 AND date_day_1.day_number = 7 AND date_day_1.day_number = 23 )</span></div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (79 chars)</h3>
+                    <div class="sql-code">SELECT <span class="different">s</span>t<span class="different">ate</span>_1.<span class="different">s</span>t<span class="different">ate</span>_<span class="different">co</span>d<span class="different">e</span> FROM <span class="different">s</span>tate <span class="different">st</span>ate_1 WHERE <span class="different">s</span>tate_1.<span class="different">st</span>ate_code = <span class="different">&#x27;</span>A<span class="different">S</span>D&#x27; <span class="different">;</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #4
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (439 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;PHOENIX&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;MILWAUKEE&#x27;</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (443 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;PHOENIX&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;MILWAUKEE&#x27;</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #5
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (448 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;PHILADELPHIA&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;SAN FRANCISCO&#x27;</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (730 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2<span class="different"> , flight_stop flight_stop_1 , airport_service airport_service_3 , city city_3</span> WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;PHILADELPHIA&#x27; AND<span class="different"> (</span> flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;SAN FRANCISCO&#x27;<span class="different"> AND flight_1.flight_id = flight_stop_1.flight_id AND flight_stop_1.stop_airport = airport_service_3.airport_code AND airport_service_3.city_code = city_3.city_code AND city_3.city_name = &#x27;DALLAS&#x27; )</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #6
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (435 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1<span class="different">, airport_service airport_service_2, city city_2</span> WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;DENVER&#x27;<span class="different"> AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;DENVER&#x27;</span></div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (249 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;DENVER&#x27;</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #7
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (496 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE<span class="different"> flight_1.stops = 0 AND (</span> flight_1.stops = 0 AND ( flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;BOSTON&#x27; AND <span class="different">( </span>flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;SAN FRANCISCO&#x27; )</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (473 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2 WHERE flight_1.stops = 0 AND ( flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;BOSTON&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;SAN FRANCISCO&#x27; )</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #8
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (436 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;DENVER&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;ATLANTA&#x27;</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (440 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;DENVER&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;ATLANTA&#x27;</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #9
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (439 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;BALTIMORE&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;ATLANTA&#x27;</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (443 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;BALTIMORE&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;ATLANTA&#x27;</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #10
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (434 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;NEWARK&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;TAMPA&#x27;</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (438 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;NEWARK&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;TAMPA&#x27;</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #11
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (439 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;ATLANTA&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;BALTIMORE&#x27;</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (443 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;ATLANTA&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;BALTIMORE&#x27;</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #12
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (435 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;DALLAS&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;BOSTON&#x27;</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (439 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;DALLAS&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;BOSTON&#x27;</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #13
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (512 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2, days days_1, date_day date_day_1 WHERE flight_1.airline_code = &#x27;<span class="different">U</span>A&#x27; AND ( flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;HOUSTON&#x27; AND ( flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;MILWAUKEE&#x27; )</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (696 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2<span class="different"> </span>, days days_1<span class="different"> </span>, date_day date_day_1 WHERE flight_1.airline_code = &#x27;<span class="different">A</span>A&#x27; AND ( flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;HOUSTON&#x27; AND ( flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;MILWAUKEE&#x27; <span class="different">AND flight_1.flight_days = days_1.days_code AND days_1.day_name = date_day_1.day_name AND date_day_1.year = 1991 AND date_day_1.month_number = 6 AND date_day_1.day_number = 25 </span>)<span class="different"> )</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #14
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (472 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.airline_code = &#x27;UA&#x27; AND ( flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;BOSTON&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;DENVER&#x27; )</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (476 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2 WHERE flight_1.airline_code = &#x27;UA&#x27; AND ( flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;BOSTON&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;DENVER&#x27; )</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #15
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (441 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;DENVER&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;PHILADELPHIA&#x27;</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (445 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;DENVER&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;PHILADELPHIA&#x27;</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #16
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (435 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;DENVER&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;BOSTON&#x27;</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (921 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> , city city_2 WHERE flight_1.departure_time = ( SELECT MIN ( flight_1.departure_time ) FROM flight flight_1 , airport_service airport_service_1 , city city_1 , airport_service airport_service_2 </span>, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;DENVER&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;BOSTON&#x27;<span class="different"> ) AND ( flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;DENVER&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;BOSTON&#x27; )</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #17
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (655 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2, days days_1, date_day date_day_1 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;SAN FRANCISCO&#x27; AND ( flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;BOSTON&#x27; AND flight_1.flight_days = days_1.days_code AND days_1.day_name = date_day_1.day_name AND date_day_1.year = 1991 AND date_day_1.month_number = 8 AND date_day_1.day_number = 8 )</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (661 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2<span class="different"> </span>, days days_1<span class="different"> </span>, date_day date_day_1 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;SAN FRANCISCO&#x27; AND ( flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;BOSTON&#x27; AND flight_1.flight_days = days_1.days_code AND days_1.day_name = date_day_1.day_name AND date_day_1.year = 1991 AND date_day_1.month_number = 8 AND date_day_1.day_number = 8 )</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #18
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (442 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;OAKLAND&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;PHILADELPHIA&#x27;</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (522 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;OAKLAND&#x27; AND <span class="different">( </span>flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;PHILADELPHIA&#x27;<span class="different"> AND ( flight_1.departure_time = 1300 AND flight_1.arrival_time = 1700 ) )</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #19
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (1069 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT fare_1.fare_id FROM fare fare_1, flight_fare flight_fare_1, flight flight_1, airport_service airport_service_1, city city_1<span class="different">, airport_service airport_service_2, city city_2</span> WHERE fare_1.round_trip_cost = ( SELECT MIN ( fare_1.round_trip_cost ) FROM fare fare_1, flight_fare flight_fare_1, flight flight_1, airport_service airport_service_1, city city_1<span class="different">, airport_service airport_service_2, city city_2</span> WHERE fare_1.fare_id = flight_fare_1.fare_id AND flight_fare_1.flight_id = flight_1.flight_id AND flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;DALLAS&#x27; <span class="different">AND flight_1.to</span>_airport = airport_service_<span class="different">2</span>.airport_code AND airport_service_<span class="different">2.city_code = city_2.city_code AND city_2.city_name = &#x27;NO&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2</span>.city_name = &#x27;DALLAS&#x27;<span class="different"> AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;TORNEY&#x27; )</span></div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (799 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT fare_1.fare_id FROM fare fare_1<span class="different"> </span>, flight_fare flight_fare_1<span class="different"> </span>, flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1 WHERE fare_1.round_trip_cost = ( SELECT MIN ( fare_1.round_trip_cost ) FROM fare fare_1<span class="different"> </span>, flight_fare flight_fare_1<span class="different"> </span>, flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1 WHERE fare_1.fare_id = flight_fare_1.fare_id AND flight_fare_1.flight_id = flight_1.flight_id AND flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;DALLAS&#x27; <span class="different">) AND fare_1.fare_id = flight_fare_1.fare_id AND flight_fare_1.flight_id = flight_1.flight_id AND flight_1.from</span>_airport = airport_service_<span class="different">1</span>.airport_code AND airport_service_<span class="different">1.city_code = city_1.city_code AND city_1</span>.city_name = &#x27;DALLAS&#x27;</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #20
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (438 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.<span class="different">flight_id</span> FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;BOSTON&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;BALTIMORE&#x27;</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (485 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.<span class="different">departure_time</span> FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;BOSTON&#x27; AND<span class="different"> (</span> flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;BALTIMORE&#x27;<span class="different"> AND flight_1.departure_time &lt; 800 )</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #21
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (442 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;BOSTON&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;SAN FRANCISCO&#x27;</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (908 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;BOSTON&#x27; AND <span class="different">( </span>flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;SAN FRANCISCO&#x27;<span class="different"> AND flight_1.stops = ( SELECT MAX ( stops ) FROM flight flight_1 , airport_service airport_service_1 , city city_1 , airport_service airport_service_2 , city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;BOSTON&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;SAN FRANCISCO&#x27; ) )</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #22
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (478 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.airline_code = &#x27;<span class="different">U</span>A&#x27; AND ( flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;PHILADELPHIA&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;DALLAS&#x27; )</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (482 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2 WHERE flight_1.airline_code = &#x27;<span class="different">A</span>A&#x27; AND ( flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;PHILADELPHIA&#x27; AND flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;DALLAS&#x27; )</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #23
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (444 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;BALTIMORE&#x27; AND <span class="different">flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_na</span>me <span class="different">= &#x27;PHILADELPHIA&#x27;</span></div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (524 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1<span class="different">.city_name = &#x27;PHILADELPHIA&#x27; AND ( flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2</span>.city_name = &#x27;BALTIMORE&#x27; AND <span class="different">( flight_1.arrival_ti</span>me <span class="different">&gt;= 1530 AND flight_1.arrival_time &lt;= 1630 ) )</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="query-comparison">
+            <div class="query-header">
+                Query #24
+                <span class="match-indicator differ">✗ Differences Found</span>
+            </div>
+            <div class="query-content">
+                <div class="query-side model">
+                    <h3>Model Generated (652 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1, airport_service airport_service_1, city city_1, airport_service airport_service_2, city city_2, days days_1, date_day date_day_1 WHERE flight_1.from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;L<span class="different">A</span>&#x27; AND ( flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;CHARLOTTE&#x27; AND <span class="different">( </span>flight_1.flight_days = days_1.days_code AND days_1.day_name = date_day_1.day_name AND date_day_1.year = 1991 AND date_day_1.month_number = <span class="different">4</span> AND date_day_1.day_number = 2<span class="different">7</span> ) )</div>
+                </div>
+                <div class="query-side correct">
+                    <h3>Correct Answer (1147 chars)</h3>
+                    <div class="sql-code">SELECT DISTINCT flight_1.flight_id FROM flight flight_1<span class="different"> </span>, <span class="different">flight_fare flight_fare_1 , fare fare_1 , </span>airport_service airport_service_1<span class="different"> </span>, city city_1<span class="different"> </span>, airport_service airport_service_2<span class="different"> </span>, city city_2<span class="different"> </span>, days days_1<span class="different"> </span>, date_day date_day_1<span class="different"> , fare_basis fare_basis_1 , days days_2 , date_day date_day_2</span> WHERE flight_1.<span class="different">departure_time BETWEEN 0 AND 1200 AND ( flight_1.</span>from_airport = airport_service_1.airport_code AND airport_service_1.city_code = city_1.city_code AND city_1.city_name = &#x27;L<span class="different">OS ANGELES</span>&#x27; AND ( flight_1.to_airport = airport_service_2.airport_code AND airport_service_2.city_code = city_2.city_code AND city_2.city_name = &#x27;CHARLOTTE&#x27; AND flight_1.flight_days = days_1.days_code AND days_1.day_name = date_day_1.day_name AND date_day_1.year = 1991 AND date_day_1.month_number = <span class="different">2</span> AND date_day_1.day_number = 2<span class="different">1</span> ) )<span class="different"> AND flight_1.flight_id = flight_fare_1.flight_id AND flight_fare_1.fare_id = fare_1.fare_id AND fare_1.fare_basis_code = fare_basis_1.fare_basis_code AND fare_basis_1.basis_days = days_2.days_code AND days_2.day_name = date_day_2.day_name AND date_day_2.year = 1991 AND date_day_2.month_number = 2 AND date_day_2.day_number = 21</span></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>
