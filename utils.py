@@ -111,6 +111,9 @@ def compute_records(processed_qs: List[str]):
         for future in futures:
             if not future.done():
                 future.cancel()
+    finally:
+        # Shutdown the thread pool to allow the process to exit
+        pool.shutdown(wait=True)
             
     recs = []
     error_msgs = []
