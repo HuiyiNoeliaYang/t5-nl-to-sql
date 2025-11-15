@@ -123,7 +123,26 @@ def load_model_from_checkpoint(args, best):
     path = os.path.join(checkpoint_dir, filename)
     
     if os.path.exists(path):
-        model.load_state_dict(torch.load(path, map_location=DEVICE))
+        # Check file size to detect corrupted/incomplete checkpoints
+        file_size = os.path.getsize(path)
+        if file_size == 0:
+            print(f"WARNING: Checkpoint file {path} is empty (0 bytes). Skipping load.")
+        elif file_size < 1000:  # Very small file is likely corrupted
+            print(f"WARNING: Checkpoint file {path} is suspiciously small ({file_size} bytes). It may be corrupted.")
+        else:
+            try:
+                checkpoint = torch.load(path, map_location=DEVICE)
+                model.load_state_dict(checkpoint)
+                print(f"✓ Successfully loaded checkpoint from {path} ({file_size / (1024*1024):.2f} MB)")
+            except Exception as e:
+                print(f"ERROR: Failed to load checkpoint from {path}")
+                print(f"  Error: {e}")
+                print(f"  File size: {file_size / (1024*1024):.2f} MB")
+                print(f"  The checkpoint file may be corrupted or incomplete.")
+                print(f"  Continuing with pretrained weights only (not fine-tuned).")
+    else:
+        print(f"WARNING: Checkpoint file not found: {path}")
+        print(f"  Continuing with pretrained weights only (not fine-tuned).")
     
     # Apply freezing again (in case we're loading for evaluation)
     freeze_model_parameters(model, args)

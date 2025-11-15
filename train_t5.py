@@ -12,6 +12,7 @@ from t5_utils import initialize_model, initialize_optimizer_and_scheduler, save_
 from transformers import GenerationConfig, T5TokenizerFast
 from load_data import load_t5_data
 from utils import compute_metrics, save_queries_and_records
+from constrained_decoding import create_sql_constrained_processor
 
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 PAD_IDX = 0
@@ -75,6 +76,8 @@ def get_args():
                         help="Nucleus sampling: only sample from tokens with cumulative probability <= top_p")
     parser.add_argument('--max_length', type=int, default=768,
                         help="Maximum length of generated sequences (default: 768)")
+    parser.add_argument('--use_constrained_decoding', action='store_true',
+                        help="Use constrained decoding to ensure valid SQL generation")
 
     args = parser.parse_args()
     return args
@@ -304,6 +307,14 @@ def eval_epoch(args, model, dev_loader, gt_sql_pth, model_sql_path, gt_record_pa
             
             # Generate SQL queries
             generation_kwargs = get_generation_kwargs(args, tokenizer)
+            
+            # Add constrained decoding if enabled
+            logits_processor = None
+            if args.use_constrained_decoding:
+                logits_processor = create_sql_constrained_processor(tokenizer, use_constrained=True)
+                if logits_processor:
+                    generation_kwargs['logits_processor'] = [logits_processor]
+            
             generated = model.generate(
                 input_ids=encoder_input,
                 attention_mask=encoder_mask,
@@ -343,6 +354,14 @@ def test_inference(args, model, test_loader, model_sql_path, model_record_path):
             
             # Generate SQL queries
             generation_kwargs = get_generation_kwargs(args, tokenizer)
+            
+            # Add constrained decoding if enabled
+            logits_processor = None
+            if args.use_constrained_decoding:
+                logits_processor = create_sql_constrained_processor(tokenizer, use_constrained=True)
+                if logits_processor:
+                    generation_kwargs['logits_processor'] = [logits_processor]
+            
             generated = model.generate(
                 input_ids=encoder_input,
                 attention_mask=encoder_mask,

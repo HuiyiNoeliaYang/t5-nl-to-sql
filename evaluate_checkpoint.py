@@ -14,6 +14,7 @@ import torch
 from t5_utils import initialize_model, load_model_from_checkpoint
 from load_data import load_t5_data
 from train_t5 import eval_epoch, get_generation_kwargs, get_args, DEVICE
+from constrained_decoding import create_sql_constrained_processor
 
 def evaluate_checkpoint(experiment_name, checkpoint_type='best', finetune=True, 
                        batch_size=16, **generation_kwargs):
@@ -48,6 +49,7 @@ def evaluate_checkpoint(experiment_name, checkpoint_type='best', finetune=True,
     args.temperature = generation_kwargs.get('temperature', 0.7)
     args.top_k = generation_kwargs.get('top_k', 50)
     args.top_p = generation_kwargs.get('top_p', 0.95)
+    args.use_constrained_decoding = generation_kwargs.get('use_constrained_decoding', False)
     
     # Load data
     print("Loading dev data...")
@@ -55,7 +57,36 @@ def evaluate_checkpoint(experiment_name, checkpoint_type='best', finetune=True,
     
     # Load model from checkpoint
     print(f"\nLoading {checkpoint_type} checkpoint from experiment: {experiment_name}")
-    model = load_model_from_checkpoint(args, best=(checkpoint_type == 'best'))
+    
+    # First, check if checkpoint files exist and their sizes
+    model_type = 'ft' if finetune else 'scr'
+    checkpoint_dir = os.path.join('checkpoints', f'{model_type}_experiments', experiment_name)
+    best_path = os.path.join(checkpoint_dir, 'best_model.pt')
+    latest_path = os.path.join(checkpoint_dir, 'checkpoint.pt')
+    
+    # Check which checkpoint to use
+    use_best = (checkpoint_type == 'best')
+    if use_best and os.path.exists(best_path):
+        file_size = os.path.getsize(best_path)
+        if file_size < 1000:  # Likely corrupted
+            print(f"⚠️  best_model.pt is suspiciously small ({file_size} bytes). Trying latest checkpoint...")
+            use_best = False
+    
+    try:
+        model = load_model_from_checkpoint(args, best=use_best)
+    except Exception as e:
+        print(f"\n⚠️  Failed to load checkpoint: {e}")
+        if use_best and os.path.exists(latest_path):
+            print("Trying to load 'latest' checkpoint instead...")
+            try:
+                model = load_model_from_checkpoint(args, best=False)
+                print("✓ Successfully loaded latest checkpoint")
+            except Exception as e2:
+                print(f"⚠️  Latest checkpoint also failed: {e2}")
+                raise RuntimeError("Both checkpoints are corrupted. Please retrain the model.")
+        else:
+            raise RuntimeError(f"Checkpoint loading failed: {e}")
+    
     model.eval()
     
     # Set up paths
@@ -139,6 +170,8 @@ def main():
                         help='Top-p (nucleus) for sampling')
     parser.add_argument('--max_length', type=int, default=768,
                         help='Maximum length of generated sequences (default: 768)')
+    parser.add_argument('--use_constrained_decoding', action='store_true',
+                        help='Use constrained decoding to ensure valid SQL generation')
     
     args = parser.parse_args()
     
@@ -153,6 +186,7 @@ def main():
         'temperature': args.temperature,
         'top_k': args.top_k,
         'top_p': args.top_p,
+        'use_constrained_decoding': args.use_constrained_decoding,
     }
     
     # Evaluate
