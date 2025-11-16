@@ -89,12 +89,41 @@ def evaluate_checkpoint(experiment_name, checkpoint_type='best', finetune=True,
     
     model.eval()
     
-    # Set up paths
+    # Set up paths - include decoding strategy in filename to avoid overwrites
     model_type = 'ft' if finetune else 'scr'
     gt_sql_path = os.path.join('data', 'dev.sql')
     gt_record_path = os.path.join('records', 'ground_truth_dev.pkl')
-    model_sql_path = os.path.join('results', f't5_{model_type}_{experiment_name}_dev_eval.sql')
-    model_record_path = os.path.join('records', f't5_{model_type}_{experiment_name}_dev_eval.pkl')
+    
+    # Create unique filename suffix based on decoding strategy
+    strategy_suffix = []
+    if generation_kwargs.get('use_constrained_decoding'):
+        strategy_suffix.append('constrained')
+    
+    if generation_kwargs.get('use_sampling') or generation_kwargs.get('num_beams', 0) == 0:
+        strategy_suffix.append(f"sampling_t{generation_kwargs.get('temperature', 0.7)}")
+        if generation_kwargs.get('top_k'):
+            strategy_suffix.append(f"k{generation_kwargs.get('top_k')}")
+        if generation_kwargs.get('top_p'):
+            strategy_suffix.append(f"p{generation_kwargs.get('top_p')}")
+    else:
+        num_beams = generation_kwargs.get('num_beams', 4)
+        if num_beams == 1:
+            strategy_suffix.append('greedy')
+        else:
+            strategy_suffix.append(f"beam{num_beams}")
+        if generation_kwargs.get('length_penalty') != 0.8:  # Only include if non-default
+            strategy_suffix.append(f"lp{generation_kwargs.get('length_penalty', 0.8)}")
+    
+    if generation_kwargs.get('repetition_penalty', 1.0) != 1.0:
+        strategy_suffix.append(f"rep{generation_kwargs.get('repetition_penalty', 1.0)}")
+    
+    if strategy_suffix:
+        strategy_str = '_' + '_'.join(str(strategy_suffix))
+    else:
+        strategy_str = ''
+    
+    model_sql_path = os.path.join('results', f't5_{model_type}_{experiment_name}{strategy_str}_dev_eval.sql')
+    model_record_path = os.path.join('records', f't5_{model_type}_{experiment_name}{strategy_str}_dev_eval.pkl')
     
     # Evaluate
     print(f"\nEvaluating on dev set...")

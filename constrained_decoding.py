@@ -74,16 +74,23 @@ class SQLConstrainedLogitsProcessor(LogitsProcessor):
         self.validator = validator or SQLGrammarValidator(tokenizer)
         self.vocab_size = len(tokenizer)
         
+        # Precompute all token IDs once (avoid encoding in hot path)
+        self._select_token_ids = set(self.validator._token_cache.get('SELECT', set()))
+        self._from_token_ids = set(self.validator._token_cache.get('FROM', set()))
+        self._where_token_ids = set(self.validator._token_cache.get('WHERE', set()))
+        self._close_paren_token_ids = set(self.validator._token_cache.get('CLOSE_PAREN', set()))
+        
+        # Precompute paren token IDs
+        open_paren_ids = tokenizer.encode('(', add_special_tokens=False)
+        self._open_paren_id = open_paren_ids[0] if open_paren_ids else -1
+        
+        # Cache will be populated when we know the device
+        self._cached_tensors = {}
+        
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> torch.FloatTensor:
         """
         Filter logits to only allow tokens that result in valid SQL.
-        
-        Args:
-            input_ids: Current input token IDs (batch_size, sequence_length)
-            scores: Logits for next token (batch_size, vocab_size)
-        
-        Returns:
-            Modified scores with invalid tokens set to -inf
+        Optimized: Only checks structure using token IDs, avoids expensive decoding when possible.
         """
         batch_size = input_ids.shape[0]
         
@@ -93,32 +100,64 @@ class SQLConstrainedLogitsProcessor(LogitsProcessor):
             self._logged = True
         
         for batch_idx in range(batch_size):
-            # Get current sequence (decoder input)
-            current_ids = input_ids[batch_idx].tolist()
-            
-            # Decode to text (skip special tokens for validation)
             try:
-                # Remove padding and special tokens for validation
-                filtered_ids = [id for id in current_ids if id != self.tokenizer.pad_token_id 
-                               and id != self.tokenizer.eos_token_id]
+                # Get current sequence (decoder input)
+                current_ids = input_ids[batch_idx]
                 
-                if not filtered_ids:
+                # Fast tensor-based check: count occurrences without decoding
+                non_pad_mask = (current_ids != self.tokenizer.pad_token_id) & (current_ids != self.tokenizer.eos_token_id)
+                if not non_pad_mask.any():
                     continue
                 
-                partial_text = self.tokenizer.decode(filtered_ids, skip_special_tokens=True)
+                filtered_ids = current_ids[non_pad_mask]
                 
-                # Get disallowed tokens (fast version - only returns small set of blocked tokens)
-                disallowed_tokens = self.validator.get_disallowed_tokens(partial_text, self.tokenizer)
+                # Cache tensors per device (create once, reuse)
+                device_key = str(current_ids.device)
+                if device_key not in self._cached_tensors:
+                    self._cached_tensors[device_key] = {
+                        'select': torch.tensor(list(self._select_token_ids), device=current_ids.device, dtype=current_ids.dtype),
+                        'from': torch.tensor(list(self._from_token_ids), device=current_ids.device, dtype=current_ids.dtype),
+                        'where': torch.tensor(list(self._where_token_ids), device=current_ids.device, dtype=current_ids.dtype),
+                        'close_paren': torch.tensor(list(self._close_paren_token_ids), device=current_ids.device, dtype=current_ids.dtype),
+                    }
+                
+                cached = self._cached_tensors[device_key]
+                
+                # Fast check: look for SELECT/FROM/WHERE token IDs directly (no decoding needed!)
+                # Use cached tensors - much faster
+                has_select = torch.any(torch.isin(filtered_ids, cached['select']))
+                has_from = torch.any(torch.isin(filtered_ids, cached['from']))
+                has_where = torch.any(torch.isin(filtered_ids, cached['where']))
+                
+                # Count parentheses using token IDs (no decoding needed)
+                open_parens = (filtered_ids == self._open_paren_id).sum().item()
+                if len(self._close_paren_token_ids) > 0:
+                    close_parens = torch.sum(torch.isin(filtered_ids, cached['close_paren'])).item()
+                else:
+                    close_parens = 0
+                
+                # Apply constraints based on structure (NO DECODING - pure tensor ops)
+                disallowed_tokens = set()
+                
+                # 1. Don't allow FROM before SELECT
+                if not has_select and self._from_token_ids:
+                    disallowed_tokens.update(self._from_token_ids)
+                
+                # 2. Don't allow WHERE before FROM
+                if not has_from and self._where_token_ids:
+                    disallowed_tokens.update(self._where_token_ids)
+                
+                # 3. Check balanced parentheses
+                if close_parens >= open_parens and self._close_paren_token_ids:
+                    disallowed_tokens.update(self._close_paren_token_ids)
                 
                 # Set scores for disallowed tokens to -inf (vectorized)
-                # Only work with the small set of disallowed tokens, not all vocab
                 if disallowed_tokens:
                     disallowed_tensor = torch.tensor(list(disallowed_tokens), device=scores.device, dtype=torch.long)
                     scores[batch_idx, disallowed_tensor] = float('-inf')
                         
             except Exception as e:
                 # If validation fails, allow all tokens (fallback)
-                # This prevents the decoder from getting stuck
                 if not hasattr(self, '_error_logged'):
                     print(f"⚠️  Constrained decoding error (allowing all tokens): {e}")
                     self._error_logged = True

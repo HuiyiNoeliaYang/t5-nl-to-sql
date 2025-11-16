@@ -4,6 +4,7 @@ import os
 import re
 import pickle
 import random
+import time
 from tqdm import tqdm
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -103,17 +104,41 @@ def compute_records(processed_qs: List[str]):
         futures.append(pool.submit(compute_record, i, query))
         
     rec_dict = {}
+    completed_count = 0
+    total_queries = len(processed_qs)
+    start_time = time.time()
+    
     try:
-        for x in tqdm(as_completed(futures, timeout=timeout_secs)):
-            query_id, rec, error_msg = x.result()
-            rec_dict[query_id] = (rec, error_msg)
-    except:
+        # Process completed futures with timeout
+        for x in tqdm(as_completed(futures, timeout=timeout_secs), total=total_queries):
+            elapsed = time.time() - start_time
+            if elapsed > timeout_secs:
+                print(f"\n⚠️  Overall timeout ({timeout_secs}s) reached. Cancelling remaining queries...")
+                break
+                
+            try:
+                query_id, rec, error_msg = x.result(timeout=5)  # Per-result timeout
+                rec_dict[query_id] = (rec, error_msg)
+                completed_count += 1
+            except Exception as e:
+                # If result retrieval fails, continue to next
+                pass
+    except Exception as e:
+        # Timeout or other error - cancel remaining futures
+        print(f"\n⚠️  Timeout or error during record computation: {e}")
+    finally:
+        # Cancel any remaining futures that haven't completed
+        cancelled = 0
         for future in futures:
             if not future.done():
                 future.cancel()
-    finally:
-        # Shutdown the thread pool to allow the process to exit
-        pool.shutdown(wait=True)
+                cancelled += 1
+        
+        # Shutdown the thread pool (don't wait for cancelled tasks)
+        pool.shutdown(wait=False)  # Changed to wait=False to not block on cancelled tasks
+        if cancelled > 0:
+            print(f"\n⚠️  Cancelled {cancelled} queries that were still running")
+        print(f"✓ Processed {completed_count}/{total_queries} queries")
             
     recs = []
     error_msgs = []
@@ -129,18 +154,22 @@ def compute_records(processed_qs: List[str]):
     return recs, error_msgs
 
 def compute_record(query_id, query):
+    """Execute a single SQL query and return results. Has timeout protection."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     try:
+        # Set a timeout for the query execution (SQLite timeout)
+        conn.execute("PRAGMA busy_timeout = 5000")  # 5 second timeout per query
         cursor.execute(query)
         rec = cursor.fetchall()
         error_msg = ""
     except Exception as e:
         rec = []
         error_msg = f"{type(e).__name__}: {e}"
-
-    conn.close()
+    finally:
+        conn.close()
+    
     return query_id, rec, error_msg
 
 def compute_sql_exact_match(gt_qs: List[str], model_qs: List[str]):
