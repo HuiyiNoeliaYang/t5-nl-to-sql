@@ -4,7 +4,6 @@ import os
 import re
 import pickle
 import random
-import time
 from tqdm import tqdm
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -89,14 +88,12 @@ def read_queries(sql_path: str):
 def compute_records(processed_qs: List[str]):
     '''
     Helper function for computing the records associated with each SQL query in the
-    input list. You may change the number of threads or the timeout variable (in seconds)
-    based on your computational constraints.
+    input list. You may change the number of threads based on your computational constraints.
 
     Input:
         * processed_qs (List[str]): The list of SQL queries to execute
     '''
     num_threads = 10
-    timeout_secs = 120
 
     pool = ThreadPoolExecutor(num_threads)
     futures = []
@@ -106,38 +103,23 @@ def compute_records(processed_qs: List[str]):
     rec_dict = {}
     completed_count = 0
     total_queries = len(processed_qs)
-    start_time = time.time()
     
+    # Process all futures without timeout - wait for all to complete
     try:
-        # Process completed futures with timeout
-        for x in tqdm(as_completed(futures, timeout=timeout_secs), total=total_queries):
-            elapsed = time.time() - start_time
-            if elapsed > timeout_secs:
-                print(f"\n⚠️  Overall timeout ({timeout_secs}s) reached. Cancelling remaining queries...")
-                break
-                
+        for x in tqdm(as_completed(futures), total=total_queries):
             try:
-                query_id, rec, error_msg = x.result(timeout=5)  # Per-result timeout
+                query_id, rec, error_msg = x.result()  # No timeout - wait indefinitely
                 rec_dict[query_id] = (rec, error_msg)
                 completed_count += 1
             except Exception as e:
-                # If result retrieval fails, continue to next
-                pass
+                # If result retrieval fails, still save it with error message
+                print(f"\n⚠️  Error retrieving result for query: {e}")
+                # Continue to next - we'll handle missing queries below
     except Exception as e:
-        # Timeout or other error - cancel remaining futures
-        print(f"\n⚠️  Timeout or error during record computation: {e}")
+        print(f"\n⚠️  Error during record computation: {e}")
     finally:
-        # Cancel any remaining futures that haven't completed
-        cancelled = 0
-        for future in futures:
-            if not future.done():
-                future.cancel()
-                cancelled += 1
-        
-        # Shutdown the thread pool (don't wait for cancelled tasks)
-        pool.shutdown(wait=False)  # Changed to wait=False to not block on cancelled tasks
-        if cancelled > 0:
-            print(f"\n⚠️  Cancelled {cancelled} queries that were still running")
+        # Shutdown the thread pool and wait for all tasks to complete
+        pool.shutdown(wait=True)  # Changed to wait=True to ensure all queries complete
         print(f"✓ Processed {completed_count}/{total_queries} queries")
             
     recs = []
@@ -148,19 +130,19 @@ def compute_records(processed_qs: List[str]):
             recs.append(rec)
             error_msgs.append(error_msg)
         else:
+            # This shouldn't happen now, but handle it gracefully
+            print(f"⚠️  Warning: Query {i} did not complete - this may indicate a hanging query")
             recs.append([])
-            error_msgs.append("Query timed out")
+            error_msgs.append("Query did not complete")
             
     return recs, error_msgs
 
 def compute_record(query_id, query):
-    """Execute a single SQL query and return results. Has timeout protection."""
+    """Execute a single SQL query and return results."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     try:
-        # Set a timeout for the query execution (SQLite timeout)
-        conn.execute("PRAGMA busy_timeout = 5000")  # 5 second timeout per query
         cursor.execute(query)
         rec = cursor.fetchall()
         error_msg = ""
