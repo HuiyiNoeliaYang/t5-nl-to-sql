@@ -175,8 +175,10 @@ def main():
                         help='Which checkpoint to load: "best" (best_model.pt) or "latest" (checkpoint.pt)')
     
     # Model arguments
-    parser.add_argument('--finetune', action='store_true', default=True,
-                        help='Whether model was fine-tuned (default: True)')
+    parser.add_argument('--finetune', action='store_true', default=False,
+                        help='Whether model was fine-tuned (default: False, set --finetune for fine-tuned models)')
+    parser.add_argument('--from_scratch', action='store_true', default=False,
+                        help='Whether model was trained from scratch (default: False, set --from_scratch for scratch models)')
     parser.add_argument('--batch_size', type=int, default=16,
                         help='Batch size for evaluation')
     
@@ -203,6 +205,14 @@ def main():
                         help='Use constrained decoding to ensure valid SQL generation')
     
     args = parser.parse_args()
+    
+    # Handle finetune/from_scratch logic
+    if args.from_scratch:
+        args.finetune = False
+    # If neither is set, default to finetune=True (most common case)
+    if not args.finetune and not args.from_scratch:
+        args.finetune = True
+        print("ℹ️  Defaulting to --finetune=True (use --from_scratch if your model was trained from scratch)")
     
     # Extract generation kwargs
     generation_kwargs = {
